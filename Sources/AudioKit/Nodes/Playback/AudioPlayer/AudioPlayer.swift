@@ -20,10 +20,10 @@ public class AudioPlayer: Node {
     /// The internal AVAudioEngine AVAudioNode
     public var avAudioNode: AVAudioNode { return mixerNode }
 
-    /// Just the playerNode's property, values above 1 will have gain applied
+    /// Just the mixerNode's property, values above 1 will have gain applied
     public var volume: AUValue {
-        get { playerNode.volume }
-        set { playerNode.volume = newValue }
+        get { mixerNode.volume }
+        set { mixerNode.volume = newValue }
     }
 
     /// Status of the player node (playing, paused, stopped, scheduling, or completed)
