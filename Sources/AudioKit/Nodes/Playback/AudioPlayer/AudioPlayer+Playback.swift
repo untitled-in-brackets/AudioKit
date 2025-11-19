@@ -43,8 +43,8 @@ public extension AudioPlayer {
         if status == .paused, seekStartTime == nil {
             resume()
         } else {
-            schedule(at: when, completionCallbackType: completionCallbackType)
-            playerNode.play()
+            schedule(at: nil, completionCallbackType: completionCallbackType)
+            playerNode.play(at: when)
             status = .playing
         }
     }
@@ -131,7 +131,6 @@ public extension AudioPlayer {
                 : playerTime
         else { return startTime }
 
-        let timeBeforePlay = playerTime >= timeBeforePlay ? timeBeforePlay : 0
         let time = startTime + playerTime - timeBeforePlay
 
         return time.clamped(to: startTime...startTime + duration)
