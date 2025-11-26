@@ -26,6 +26,51 @@ extension AudioPlayer {
             Log("The player needs a file or a valid buffer to schedule", type: .error)
         }
     }
+    
+    public func scheduleSegment(
+        from: TimeInterval,
+        to: TimeInterval,
+        at audioTime: AVAudioTime?,
+        completionCallbackType: AVAudioPlayerNodeCompletionCallbackType = .dataPlayedBack)
+    {
+        guard let file = file else {
+            Log("File is nil")
+            return
+        }
+
+        let startFrame = AVAudioFramePosition(from * file.fileFormat.sampleRate)
+        var endFrame = AVAudioFramePosition(to * file.fileFormat.sampleRate)
+
+        if endFrame == 0 {
+            endFrame = file.length
+        }
+
+        let totalFrames = (file.length - startFrame) - (file.length - endFrame)
+
+        guard totalFrames > 0 else {
+            Log("Unable to schedule file. totalFrames to play: \(totalFrames). file.length: \(file.length)", type: .error)
+            return
+        }
+
+        let frameCount = AVAudioFrameCount(totalFrames)
+
+        playerNode.scheduleSegment(file,
+                                   startingFrame: startFrame,
+                                   frameCount: frameCount,
+                                   at: audioTime,
+                                   completionCallbackType: completionCallbackType) { _ in
+            if self.isSeeking { return }
+            if Thread.isMainThread {
+                self.internalCompletionHandler()
+            } else {
+                DispatchQueue.main.async {
+                    self.internalCompletionHandler()
+                }
+            }
+        }
+
+        playerNode.prepare(withFrameCount: frameCount)
+    }
 
     // play from disk rather than ram
     private func scheduleSegment(at audioTime: AVAudioTime?,
