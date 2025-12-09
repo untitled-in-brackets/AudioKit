@@ -104,6 +104,85 @@ extension AudioPlayer {
         startingFrame = startFrame
         endingFrame = endFrame
     }
+    
+    // Returns a buffer with data read from the linked audio file given the start and end times
+    func makeBuffer(from: TimeInterval, to: TimeInterval) -> AVAudioPCMBuffer? {
+        guard let file = file else {
+            // don't print this error if there is a buffer already set, just return
+            if buffer == nil {
+                Log("It's not possible to create edited buffers without a file reference.", type: .error)
+            }
+            
+            return nil
+        }
+
+        let sampleRate: Double = file.fileFormat.sampleRate
+        let processingFormat = file.processingFormat
+        var startFrame = AVAudioFramePosition(from * sampleRate)
+        let endTime = to > 0 ? to : duration
+        var endFrame = AVAudioFramePosition(endTime * sampleRate)
+
+        guard file.length > 0 else {
+            Log("Could not set PCM buffer in " +
+                "\(file.url.lastPathComponent) length = 0.", type: .error)
+            return nil
+        }
+
+        let framesToRead: AVAudioFramePosition = endFrame - startFrame
+
+        guard framesToRead > 0 else {
+            Log("Error, endFrame must be after startFrame. Unable to fill buffer.",
+                "startFrame", startFrame,
+                "endFrame", endFrame,
+                type: .error)
+            return nil
+        }
+
+        // AVAudioFrameCount is unsigned so cast it after the zero check
+        frameCount = AVAudioFrameCount(framesToRead)
+
+        guard let pcmBuffer = AVAudioPCMBuffer(pcmFormat: processingFormat, frameCapacity: frameCount) else {
+            return nil
+        }
+
+        do {
+            file.framePosition = startFrame
+            // read the requested frame count from the file
+            try file.read(into: pcmBuffer, frameCount: frameCount)
+
+        } catch let err as NSError {
+            Log("Couldn't read data into buffer. \(err)", type: .error)
+            return nil
+        }
+
+        let playerChannelCount = playerNode.outputFormat(forBus: 0).channelCount
+
+        if pcmBuffer.format.channelCount < playerChannelCount {
+            Log("Copying mono data to 2 channel buffer...", pcmBuffer.format)
+
+            guard let tmpBuffer = AVAudioPCMBuffer(pcmFormat: playerNode.outputFormat(forBus: 0),
+                                                   frameCapacity: frameCount),
+                let monoData = pcmBuffer.floatChannelData
+            else {
+                Log("Failed to setup mono conversion buffer", type: .error)
+                return nil
+            }
+
+            // TODO: this creates a situation where the buffer is copied twice if it needs to be reversed
+            // i is the index in the buffer
+            for i in 0 ..< Int(pcmBuffer.frameLength) {
+                // n is the channel
+                for n in 0 ..< Int(playerChannelCount) {
+                    tmpBuffer.floatChannelData?[n][i] = monoData[0][i]
+                }
+            }
+            tmpBuffer.frameLength = pcmBuffer.frameLength
+            return tmpBuffer
+
+        } else {
+            return pcmBuffer
+        }
+    }
 
     // Read the buffer in backwards
     fileprivate func reverseBuffer() {

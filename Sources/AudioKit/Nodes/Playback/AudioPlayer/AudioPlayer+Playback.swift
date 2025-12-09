@@ -153,6 +153,70 @@ public extension AudioPlayer {
 }
 
 public extension AudioPlayer {
+    /// Schedules and plays a looping buffer by first scheduling a buffer from the current point in the loop, then scheduling a second buffer at the loop point
+    ///
+    /// - Parameter from: The start time of the loop
+    /// - Parameter to: The end time of the loop
+    /// - Parameter currentTime: The current playback time
+    /// - Parameter at: The AVAudioTime to start the player
+    public func playLoop(
+        from: TimeInterval,
+        to: TimeInterval,
+        currentTime: TimeInterval,
+        at audioTime: AVAudioTime,
+        completionCallbackType: AVAudioPlayerNodeCompletionCallbackType = .dataPlayedBack
+    ) {
+        guard let firstBuffer = makeBuffer(from: currentTime, to: to) else { return }
+        guard let loopBuffer = makeBuffer(from: from, to: to) else { return }
+        
+        editStartTime = from
+        editEndTime = to
+        
+        if let now = playerNode.lastRenderTime {
+            timeBeforePlay = audioTime.timeIntervalSince(otherTime: now) ?? 0
+        }
+                
+        playerNode.scheduleBuffer(firstBuffer,
+                                  at: nil,
+                                  options: [.interrupts],
+                                  completionCallbackType: completionCallbackType) { _ in
+            if self.isSeeking { return }
+            if Thread.isMainThread {
+                self.internalCompletionHandler()
+            } else {
+                DispatchQueue.main.async {
+                    self.internalCompletionHandler()
+                }
+            }
+        }
+
+        playerNode.prepare(withFrameCount: firstBuffer.frameLength)
+        playerNode.play(at: audioTime)
+        status = .playing
+        
+        let secondsFromNow = to - currentTime
+        let scheduledTime = audioTime.offset(seconds: secondsFromNow)
+        let loopStartTime = playerNode.playerTime(forNodeTime: scheduledTime)
+                
+        playerNode.scheduleBuffer(loopBuffer,
+                                  at: loopStartTime,
+                                  options: [.loops],
+                                  completionCallbackType: completionCallbackType) { _ in
+            if self.isSeeking { return }
+            if Thread.isMainThread {
+                self.internalCompletionHandler()
+            } else {
+                DispatchQueue.main.async {
+                    self.internalCompletionHandler()
+                }
+            }
+        }
+        
+        playerNode.prepare(withFrameCount: loopBuffer.frameLength)
+    }
+}
+
+public extension AudioPlayer {
     /// Synonym for isPlaying
     var isStarted: Bool { isPlaying }
 
