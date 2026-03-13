@@ -63,14 +63,19 @@ public struct Device: Equatable, Hashable {
     }
 
     /// Return a port description matching the devices name.
-    var portDescription: AVAudioSessionPortDescription? {
+    public var portDescription: AVAudioSessionPortDescription? {
         return AVAudioSession.sharedInstance().availableInputs?.filter { $0.portName == name }.first
     }
 
     /// Return a data source matching the devices deviceID.
-    var dataSource: AVAudioSessionDataSourceDescription? {
+    public var dataSource: AVAudioSessionDataSourceDescription? {
         let dataSources = portDescription?.dataSources ?? []
         return dataSources.filter { deviceID.contains($0.dataSourceName) }.first
+    }
+
+    /// Returns all data sources for the device
+    public var dataSources: [AVAudioSessionDataSourceDescription] {
+        portDescription?.dataSources ?? []
     }
     #endif
 }
