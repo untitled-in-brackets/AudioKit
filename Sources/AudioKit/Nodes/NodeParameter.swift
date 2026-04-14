@@ -229,7 +229,7 @@ extension AUValue: NodeParameterType {
 }
 
 /// Used internally so we can iterate over parameters using reflection.
-protocol ParameterBase {
+public protocol ParameterBase {
     var projectedValue: NodeParameter { get }
 }
 
